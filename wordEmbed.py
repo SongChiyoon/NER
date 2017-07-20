@@ -47,6 +47,11 @@ parser.parse()
 sentences = parser.sentencs
 features = parser.features
 
+print(sentences[0])
+
+
+
+
 model_name = "model/w2v_model"
 model = gensim.models.Word2Vec(sentences)
 model.wv.save_word2vec_format(model_name, binary=False)
@@ -54,6 +59,4 @@ model.wv.save_word2vec_format(model_name, binary=False)
 fModel_name = "model/f2v_model"
 model = gensim.models.Word2Vec(features)
 model.wv.save_word2vec_format(fModel_name, binary=False)
-
-
 
