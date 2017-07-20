@@ -34,6 +34,7 @@ class Parser(object):
         self.text2Object = []
         self.sentencs = []
         self.features = []
+        self.labels = []
 
     def sentences(self):
         return self.sentencs
@@ -41,11 +42,15 @@ class Parser(object):
     def features(self):
         return self.features
 
+    def labels(self):
+        return self.labels
+
     def parse(self):
         text = None
         appending = False
         words = []
         fe = []
+        label = []
         with open(self.path, 'r') as f:
             for line in f:
 
@@ -57,6 +62,8 @@ class Parser(object):
                         self.text2Object.append(text)
                         self.sentencs.append(words)
                         self.features.append(fe)
+                        self.labels.append(label)
+                        label = []
                         fe = []
                         words = []
                     text = textObject(object)
@@ -75,4 +82,5 @@ class Parser(object):
                         text.addSplits(splits[0], splits[1], splits[2], splits[3])
                         words.append(splits[1])
                         fe.append(splits[2])
+                        label.append(splits[3])
                     continue
