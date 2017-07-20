@@ -1,5 +1,5 @@
 class textObject(object):
-    def __init__(self):
+    def __init__(self, path):
         self.positions = []
         self.words = []
         self.features = []
@@ -28,48 +28,51 @@ class textObject(object):
     def getWord(self):
         return self.words
 
-text2Object = []
-words = []
-sentencs = []
-appending = False
-text = None
-datapath = "data/train.txt"
-with open(datapath, 'r') as f:
-    for line in f:
+class Parser(object):
+    def __init__(self, path):
+        self.path = path
+        self.text2Object = []
+        self.sentencs = []
+        self.features = []
 
-        if ";" in line and "." in line:
-            if not appending:
-                print("start")
-            appending = True
-            if appending and text is not None:
-                text2Object.append(text)
-                sentencs.append(words)
-                words = []
-            text = textObject()
-            text.setLine(line[2:])
-            continue
-        if "$" in line and "." in line:
-            text.setResult(line[1:])
-            continue
-        if appending:
-            line = line.replace("\n", "")
-            if "" == line:
-                continue
-            splits = line.split("\t")
-            #print(len(splits))
-            if len(splits) == 4:
-                text.addSplits(splits[0], splits[1], splits[2], splits[3])
-                words.append(splits[1])
-            continue
-#print(sentencs)
-import gensim
-model_name = "model/w2v_model"
-model = gensim.models.Word2Vec(sentencs)
-#model.save(model_name)
-model.wv.save_word2vec_format("model.txt", binary=False)
+    def sentences(self):
+        return self.sentencs
 
+    def features(self):
+        return self.features
 
+    def parse(self):
+        text = None
+        appending = False
+        words = []
+        fe = []
+        with open(self.path, 'r') as f:
+            for line in f:
 
-
-#with open('word2vec.txt', 'w') as f:
-
+                if ";" in line and "." in line:
+                    if not appending:
+                        print("start")
+                    appending = True
+                    if appending and text is not None:
+                        self.text2Object.append(text)
+                        self.sentencs.append(words)
+                        self.features.append(fe)
+                        fe = []
+                        words = []
+                    text = textObject(object)
+                    text.setLine(line[2:])
+                    continue
+                if "$" in line and "." in line:
+                    text.setResult(line[1:])
+                    continue
+                if appending:
+                    line = line.replace("\n", "")
+                    if "" == line:
+                        continue
+                    splits = line.split("\t")
+                    # print(len(splits))
+                    if len(splits) == 4:
+                        text.addSplits(splits[0], splits[1], splits[2], splits[3])
+                        words.append(splits[1])
+                        fe.append(splits[2])
+                    continue
