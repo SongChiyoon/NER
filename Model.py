@@ -5,27 +5,38 @@ import pandas as pd
 import dataparse
 
 from gensim.models.keyedvectors import KeyedVectors
-wordModel = KeyedVectors.load_word2vec_format('model/w2v_model', binary=False)
-featureModel = KeyedVectors.load_word2vec_format('model/f2v_model', binary=False)
+wordModel = KeyedVectors.load('model/w2v_model')
+featureModel = KeyedVectors.load('model/f2v_model')
 
 import dataparse as ps
 
 data_path = 'data/train.txt'
 parser = ps.Parser(data_path)
 parser.parse()
-sentences = parser.sentencs
+sentences = parser.sentences
 
-
+category = parser.catagory
 labels = parser.labels
 
-x_data = np.array(sentences)
+input_data = []
+for line in sentences:
+    w2c = []
+    for i in line:
+        w2c.append(wordModel[i])
+    input_data.append(w2c)
+
+x_data = np.array(input_data)
 y_data = np.array(labels)
 
-print(y_data.shape)
-print(x_data.shape)
-
-X = tf.placeholder(tf.int32, [None, None])  # X data
-Y = tf.placeholder(tf.int32, [None, None])  # Y label
+n_class = len(category)  #number of labels
+category = np.array(category)
+# ['O' 'B_OG' 'I' 'B_DT' 'B_PS' 'B_LC' 'B_TI']
 
 
-#y_one_hot = tf.one_hot(Y, num_classes)  # one hot: 1 -> 0 1 0 0 0 0 0 0 0 0
+X = tf.placeholder(tf.float32, [None, None, 200])  # X data
+Y = tf.placeholder(tf.float32, [None, n_class])  # Y label
+
+onehot_labels = tf.one_hot(n_class-1, 5)
+
+
+
