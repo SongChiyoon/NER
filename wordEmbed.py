@@ -44,19 +44,30 @@ import dataparse as ps
 datapath = "data/train.txt"
 parser = ps.Parser(datapath)
 parser.parse()
-sentences = parser.sentencs
+sentences = parser.sentences
 features = parser.features
 
-print(sentences[0])
 
+datapath = "data/test.txt"
+parser = ps.Parser(datapath)
+parser.parse()
+sentences += parser.sentences
 
-
+# char len : 14991
 
 model_name = "model/w2v_model"
-model = gensim.models.Word2Vec(sentences)
-model.wv.save_word2vec_format(model_name, binary=False)
+model = gensim.models.Word2Vec(sentences, size=200, min_count=1)
+model.save(model_name)
+model = gensim.models.Word2Vec.load(model_name)
+print(model['AFC'])
 
 fModel_name = "model/f2v_model"
-model = gensim.models.Word2Vec(features)
-model.wv.save_word2vec_format(fModel_name, binary=False)
+model = gensim.models.Word2Vec(features, size=200, min_count=1)
+model.save(fModel_name)
+model = gensim.models.Word2Vec.load(model_name)
+
+
+
+
+
 
