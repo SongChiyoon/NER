@@ -32,12 +32,13 @@ class Parser(object):
     def __init__(self, path):
         self.path = path
         self.text2Object = []
-        self.sentencs = []
+        self.sentences = []
         self.features = []
         self.labels = []
+        self.catagory = []
 
     def sentences(self):
-        return self.sentencs
+        return self.sentences
 
     def features(self):
         return self.features
@@ -45,27 +46,32 @@ class Parser(object):
     def labels(self):
         return self.labels
 
+    def category(self):
+        return self.catagory
+
     def parse(self):
         text = None
         appending = False
         words = []
         fe = []
         label = []
+        a = 0
         with open(self.path, 'r') as f:
             for line in f:
-
                 if ";" in line and "." in line:
                     if not appending:
                         print("start")
-                    appending = True
+                        appending = True
+
                     if appending and text is not None:
                         self.text2Object.append(text)
-                        self.sentencs.append(words)
+                        self.sentences.append(words)
                         self.features.append(fe)
                         self.labels.append(label)
                         label = []
                         fe = []
                         words = []
+                        a += 1
                     text = textObject(object)
                     text.setLine(line[2:])
                     continue
@@ -83,4 +89,7 @@ class Parser(object):
                         words.append(splits[1])
                         fe.append(splits[2])
                         label.append(splits[3])
+                        if splits[3] not in self.catagory:
+                            self.catagory.append(splits[3])
                     continue
+            print('len :{0}'.format(a))
