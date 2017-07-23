@@ -55,7 +55,8 @@ class Parser(object):
         words = []
         fe = []
         label = []
-        a = 0
+        max_len = -1
+
         with open(self.path, 'r') as f:
             for line in f:
                 if ";" in line and "." in line:
@@ -68,10 +69,11 @@ class Parser(object):
                         self.sentences.append(words)
                         self.features.append(fe)
                         self.labels.append(label)
+                        if len(words) > max_len:
+                            max_len = len(words)
                         label = []
                         fe = []
                         words = []
-                        a += 1
                     text = textObject(object)
                     text.setLine(line[2:])
                     continue
@@ -92,4 +94,4 @@ class Parser(object):
                         if splits[3] not in self.catagory:
                             self.catagory.append(splits[3])
                     continue
-            print('len :{0}'.format(a))
+            print('max len :{0}'.format(max_len))
