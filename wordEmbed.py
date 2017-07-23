@@ -56,13 +56,13 @@ sentences += parser.sentences
 # char len : 14991
 
 model_name = "model/w2v_model"
-model = gensim.models.Word2Vec(sentences, size=200, min_count=1)
+model = gensim.models.Word2Vec(sentences, size=50, min_count=1)
 model.save(model_name)
 model = gensim.models.Word2Vec.load(model_name)
 print(model['AFC'])
 
 fModel_name = "model/f2v_model"
-model = gensim.models.Word2Vec(features, size=200, min_count=1)
+model = gensim.models.Word2Vec(features, size=50, min_count=1)
 model.save(fModel_name)
 model = gensim.models.Word2Vec.load(model_name)
 
