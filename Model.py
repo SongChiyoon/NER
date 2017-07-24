@@ -22,13 +22,13 @@ labels = parser.labels
 #train set
 input_data = []
 entity_data = []
-
+sequence_length = []
 n_class = len(category)  #number of labels
 
 max_len = 336
 vec_size = 50
 learning_rate = 0.01
-empty = 'empty'
+#empty = 'empty'
 label_dic = {
     'O' : [1,0,0,0,0,0,0],
     'B_OG' : [0,1,0,0,0,0,0],
@@ -39,23 +39,26 @@ label_dic = {
     'I': [0,0,0,0,0,0,1],
     'empty':[0,0,0,0,0,0,0]
 }
+# remove zero padding
+
 for line in sentences:
     w2c = []
-    if len(line) < max_len:
-        for i in range(max_len - len(line)):
-            line.append(empty)
+    #if len(line) < max_len:
+        #for i in range(max_len - len(line)):
+            #line.append(empty)
     for i in line:
-        if empty == i:
-            w2c.append(np.zeros(vec_size))
-        else:
-            w2c.append(wordModel[i])
+        #if empty == i:
+            #w2c.append(np.zeros(vec_size))
+        #else:
+        w2c.append(wordModel[i])
     input_data.append(w2c)
 
+# remove zero padding
 for line in labels:
     l = []
-    if len(line) < max_len:
-        for i in range(max_len-len(line)):
-            line.append(empty)
+    #if len(line) < max_len:
+        #for i in range(max_len-len(line)):
+            #line.append(empty)
     for i in line:
         l.append(label_dic[i])
     entity_data.append(l)
@@ -66,6 +69,8 @@ y_data = np.array(entity_data)
 print(x_data.shape)
 print(y_data.shape)
 
+
+print(len(x_data[1]))
 category = np.array(category)
 # ['O' 'B_OG' 'I' 'B_DT' 'B_PS' 'B_LC' 'B_TI']
 
@@ -87,14 +92,15 @@ Y_pred = tf.contrib.layers.fully_connected(outputs, n_class, activation_fn=None)
 print("Y_predic looks like %s" % (Y_pred))
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=Y_pred))
 optm = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
-corr = tf.equal(tf.argmax(Y_pred, 1), tf.argmax(Y, 1))
+corr = tf.equal(tf.argmax(Y_pred, 2), tf.argmax(Y, 2))
 accr = tf.reduce_mean(tf.cast(corr, tf.float32))
 
 
 #Saver
-save_dir = "model/"
+save_dir = "model_2/"
 saver = tf.train.Saver(max_to_keep=3)
-
+#sess = tf.Session()
+#saver.restore(sess, save_dir+"ner.ckpt-28")
 # INITIALIZER
 init = tf.global_variables_initializer()
 print ("FUNCTIONS READY")
@@ -104,10 +110,14 @@ save_step = 2
 batch_size = 20
 n_train = x_data.shape[0]
 show_step = 2
+pretrained = True
 # LAUNCH THE GRAPH
+
+x = x_data[None, :]
+print(x.shape)
 sess = tf.Session()
 sess.run(init)
-
+'''
 print ("Training start")
 for iter in range(iteration):
     total_batch = int(n_train / batch_size)
@@ -130,3 +140,6 @@ for iter in range(iteration):
         saver.save(sess, save_dir+"/ner.ckpt-"+str(iter))
 
 print("finish training")
+'''
+
+
