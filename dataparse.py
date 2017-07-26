@@ -56,7 +56,7 @@ class Parser(object):
         fe = []
         label = []
         max_len = -1
-
+        min_len = 10000
         with open(self.path, 'r') as f:
             for line in f:
                 if ";" in line and "." in line:
@@ -71,6 +71,8 @@ class Parser(object):
                         self.labels.append(label)
                         if len(words) > max_len:
                             max_len = len(words)
+                        if len(words) < min_len and len(words) != 0:
+                            min_len = len(words)
                         label = []
                         fe = []
                         words = []
@@ -95,3 +97,4 @@ class Parser(object):
                             self.catagory.append(splits[3])
                     continue
             print('max len :{0}'.format(max_len))
+            print('min len :{0}'.format(min_len))
