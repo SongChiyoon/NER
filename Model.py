@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow.contrib.rnn import static_bidirectional_rnn
 
 from gensim.models.keyedvectors import KeyedVectors
 wordModel = KeyedVectors.load('model/w2v_model')
@@ -38,10 +37,11 @@ label_dic = {
     'B_LC' : [0,0,0,0,1,0,0],
     'B_TI': [0,0,0,0,0,1,0],
     'I': [0,0,0,0,0,0,1],
-    'empty':[0,0,0,0,0,0,0]
+    'empty':[0,0,0,0,0,0,0]   #zero-padding's label
 }
-# remove zero padding
 
+# add zero padding using empty
+# convert word to vector
 for line in sentences:
     w2c = []
     sequence_length.append(len(line))
@@ -81,7 +81,6 @@ X = tf.placeholder(tf.float32, [None, None, 50])  # X data
 Y = tf.placeholder(tf.float32, [None, None, n_class])  # Y label
 seq_len = tf.placeholder(tf.int64, [None])
 
-print(sequence_length[3:5])
 
 #cell = tf.contrib.rnn.BasicLSTMCell(max_len, state_is_tuple=True)
 lstm_cell_fw = tf.nn.rnn_cell.BasicLSTMCell(max_len, state_is_tuple=True)
@@ -91,9 +90,7 @@ lstm_cell_bw = tf.nn.rnn_cell.BasicLSTMCell(max_len, state_is_tuple=True)
 lstm_cell_fw = tf.nn.rnn_cell.MultiRNNCell([lstm_cell_fw] * 1)
 lstm_cell_bw = tf.nn.rnn_cell.MultiRNNCell([lstm_cell_bw] * 1)
 
-#sequence_len = tf.shape(X)[1]
-#sequence_len = tf.expand_dims(sequence_len, axis=0, name='sequence_length')
-
+# bidirectional_ rnn
 outputs, _  = tf.nn.bidirectional_dynamic_rnn(
             lstm_cell_fw,
             lstm_cell_bw,
