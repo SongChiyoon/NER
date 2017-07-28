@@ -1,8 +1,6 @@
 import tensorflow as tf
-import gensim
 import numpy as np
-import pandas as pd
-import dataparse
+from tensorflow.contrib.rnn import static_bidirectional_rnn
 
 from gensim.models.keyedvectors import KeyedVectors
 wordModel = KeyedVectors.load('model/w2v_model')
@@ -79,17 +77,34 @@ category = np.array(category)
 # ['O' 'B_OG' 'I' 'B_DT' 'B_PS' 'B_LC' 'B_TI']
 
 
-X = tf.placeholder(tf.float32, [None, 336, 50])  # X data
-Y = tf.placeholder(tf.float32, [None, 336, n_class])  # Y label
-seq_len = tf.placeholder(tf.int32, [None])
+X = tf.placeholder(tf.float32, [None, None, 50])  # X data
+Y = tf.placeholder(tf.float32, [None, None, n_class])  # Y label
+seq_len = tf.placeholder(tf.int64, [None])
 
 print(sequence_length[3:5])
 
-cell = tf.contrib.rnn.BasicLSTMCell(max_len, state_is_tuple=True)
-#cell = tf.contrib.rnn.MultiRNNCell([cell] * 2, state_is_tuple=True)
-initial_state = cell.zero_state(1, tf.float32)
+#cell = tf.contrib.rnn.BasicLSTMCell(max_len, state_is_tuple=True)
+lstm_cell_fw = tf.nn.rnn_cell.BasicLSTMCell(max_len, state_is_tuple=True)
+lstm_cell_bw = tf.nn.rnn_cell.BasicLSTMCell(max_len, state_is_tuple=True)
 
-outputs, _states = tf.nn.dynamic_rnn(cell, X, dtype=tf.float32, sequence_length=seq_len)
+#initial_state = cell.zero_state(1, tf.float32)
+lstm_cell_fw = tf.nn.rnn_cell.MultiRNNCell([lstm_cell_fw] * 1)
+lstm_cell_bw = tf.nn.rnn_cell.MultiRNNCell([lstm_cell_bw] * 1)
+
+#sequence_len = tf.shape(X)[1]
+#sequence_len = tf.expand_dims(sequence_len, axis=0, name='sequence_length')
+
+outputs, _  = tf.nn.bidirectional_dynamic_rnn(
+            lstm_cell_fw,
+            lstm_cell_bw,
+            inputs=X,
+            dtype=tf.float32,
+            sequence_length=seq_len
+        )
+#outputs, _states = tf.nn.dynamic_rnn(cell, X, dtype=tf.float32, sequence_length=seq_len)
+outputs_forward, outputs_backward = outputs
+outputs = tf.concat([outputs_forward, outputs_backward], axis=2, name='output_sequence')
+
 
 Y_pred = tf.contrib.layers.fully_connected(outputs, n_class, activation_fn=None)
 
@@ -118,10 +133,11 @@ show_step = 2
 pretrained = True
 # LAUNCH THE GRAPH
 
+#outputs2 = tf.reshape(tf.concat(1, outputs), [-1, max_len])
+
 sess = tf.Session()
 sess.run(init)
 sequence_length = np.array(sequence_length)
-print(sess.run(cost, feed_dict={X:x_data[:1], Y:y_data[:1], seq_len:sequence_length[:1]}))
 
 for iter in range(iteration):
     total_batch = int(n_train / batch_size)
@@ -129,9 +145,14 @@ for iter in range(iteration):
     sum_cost = 0
     for i in range(total_batch):
         randidx = randpermlist[i * batch_size:min((i + 1) * batch_size, n_train - 1)]
-        print(randidx)
-        if i == 5:
-            print(sequence_length[randidx])
+        batch_xs = x_data[randidx, :]
+        batch_ys = y_data[randidx, :]
+        batch_seq = sequence_length[randidx]
+        sess.run(optm, feed_dict={X: batch_xs, Y: batch_ys, seq_len: batch_seq})
+
+        if i == 20:
+            out =  sess.run(outputs, feed_dict={X:batch_xs, Y:batch_ys, seq_len:batch_seq})
+            print(out)
             break
     break
 '''
