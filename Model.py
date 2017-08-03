@@ -103,7 +103,7 @@ outputs_forward, outputs_backward = outputs
 outputs = tf.concat([outputs_forward, outputs_backward], axis=2, name='output_sequence')
 
 
-Y_pred = tf.contrib.layers.fully_connected(outputs, n_class, activation_fn=None)
+Y_pred = tf.contrib.layers.fully_connected(outputs, n_class, activation_fn=tf.tanh)
 
 print("Y_predic looks like %s" % (Y_pred))
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=Y_pred))
@@ -148,8 +148,12 @@ for iter in range(iteration):
         sess.run(optm, feed_dict={X: batch_xs, Y: batch_ys, seq_len: batch_seq})
 
         if i == 20:
+            of, ob = sess.run([outputs_forward, outputs_backward],
+                              feed_dict={X:batch_xs, Y:batch_ys, seq_len:batch_seq} )
             out =  sess.run(outputs, feed_dict={X:batch_xs, Y:batch_ys, seq_len:batch_seq})
-            print(out)
+            print(of.shape)
+            print(ob.shape)
+            print(out.shape)
             break
     break
 '''
