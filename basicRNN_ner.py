@@ -25,7 +25,7 @@ n_hidden = n_class
 #n_hidden = 100
 max_len = 336
 vec_size = 50
-learning_rate = 0.1
+learning_rate = 0.05
 empty = 'empty'
 label_dic = {
     'O' : [1,0,0,0,0,0,0,0],
@@ -74,6 +74,7 @@ def getData(sentences):
 
 x_data, y_data, sequence_length = getData(sentences)
 
+print("x data format", x_data[1:2, :].shape)
 X = tf.placeholder(
     tf.float32, [None, max_len, vec_size])  # X one-hot
 Y = tf.placeholder(tf.int32, [None, max_len])  # Y label
@@ -130,10 +131,10 @@ for iter in range(iteration):
 
     if iter % show_step == 0:
         print("loss :",show_loss)
-        '''y_pre1,= sess.run(prediction, feed_dict={X:x_data[:1], Y:y_data[:1]} )
+        y_pre1,= sess.run(prediction, feed_dict={X:batch_xs, Y:batch_ys} )
         print("predict1")
-        print(y_pre1)
+        print(y_pre1[:1])
         print("label")
-        print(y_data[:1])'''
+        print(y_data[:1])
 
 
