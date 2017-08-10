@@ -20,22 +20,26 @@ labels = parser.labels
 #train set
 useBatch = True
 batch_size = 64
-n_class = len(category)+1  #number of labels
-n_hidden = n_class
+n_class = 12  #number of labels
+n_hidden = 16
 #n_hidden = 100
 max_len = 336
 vec_size = 50
 learning_rate = 0.05
 empty = 'empty'
 label_dic = {
-    'O' : [1,0,0,0,0,0,0,0],
-    'B_OG' : [0,1,0,0,0,0,0,0],
-    'B_DT' : [0,0,1,0,0,0,0,0],
-    'B_PS' : [0,0,0,1,0,0,0,0],
-    'B_LC' : [0,0,0,0,1,0,0,0],
-    'B_TI': [0,0,0,0,0,1,0,0],
-    'I': [0,0,0,0,0,0,1,0],
-    'empty':[0,0,0,0,0,0,0,1]   #zero-padding's label
+    'O' : [1,0,0,0,0,0,0,0,0,0,0,0],
+    'B_OG' : [0,1,0,0,0,0,0,0,0,0,0,0],
+    'I_OG' : [0,0,1,0,0,0,0,0,0,0,0,0],
+    'B_DT' : [0,0,0,1,0,0,0,0,0,0,0,0],
+    'I_DT' : [0,0,0,0,1,0,0,0,0,0,0,0],
+    'B_PS' : [0,0,0,0,0,1,0,0,0,0,0,0],
+    'I_PS' : [0,0,0,0,0,0,1,0,0,0,0,0],
+    'B_LC' : [0,0,0,0,0,0,0,1,0,0,0,0],
+    'I_LC' : [0,0,0,0,0,0,0,0,1,0,0,0],
+    'B_TI': [0,0,0,0,0,0,0,0,0,1,0,0],
+    'I_TI': [0,0,0,0,0,0,0,0,0,0,1,0],
+    'empty':[0,0,0,0,0,0,0,0,0,0,0,1]   #zero-padding's label
 }
 
 def getData(sentences):
@@ -59,10 +63,15 @@ def getData(sentences):
     # remove zero padding
     for line in labels:
         l = []
+        prev = None
         if len(line) < max_len:
             for i in range(max_len - len(line)):
                 line.append(empty)
         for i in line:
+            if i != "O" and i != "I" and i != "empty":
+                prev = i.split("_")[1]
+            if i == 'I':
+                i = i+"_"+prev
             l.append(np.argmax(label_dic[i], axis=0))
         entity_data.append(l)
 
@@ -102,7 +111,7 @@ def BiRNN(X, seq_len):
     lstm_cell_bw = tf.contrib.rnn.MultiRNNCell([lstm_cell_bw] * 1)
 
     # bidirectional_ rnn
-    outputs, _ = tf.nn.bidirectional_dynamic_rnn(
+    bi_outputs, _ = tf.nn.bidirectional_dynamic_rnn(
         lstm_cell_fw,
         lstm_cell_bw,
         inputs=X,
@@ -111,13 +120,13 @@ def BiRNN(X, seq_len):
     )
 #8/7 concat부터
 
-    outputs_forward, outputs_backward = outputs
-    #outputs = tf.concat([outputs_forward, outputs_backward], axis=2, name='output_sequence')
-    outputs = tf.add(outputs_forward, outputs_backward)
-     # FC layer
-
+    outputs_forward, outputs_backward = bi_outputs
+    bi_outputs = tf.concat([outputs_forward, outputs_backward], axis=2, name='output_sequence')
+    #outputs = tf.add(outputs_forward, outputs_backward)
+    #outputs = outputs_forward
+    outputs = bi_outputs
+    # FC layer
     X_for_fc = tf.reshape(outputs, [-1, n_hidden])
-
     outputs = tf.contrib.layers.fully_connected(
         inputs=X_for_fc, num_outputs=n_class, activation_fn=None)
 
@@ -125,13 +134,14 @@ def BiRNN(X, seq_len):
 
 # reshape out for sequence_loss
 #outputs = RNN_with_Fully(X)
-outputs = BiRNN(X, seq_len)
+outputs= BiRNN(X, seq_len)
 if useBatch:
-    outputs = tf.reshape(outputs, [batch_size, max_len, n_class])
+    outputs = tf.reshape(outputs, [batch_size, max_len, 2*n_class])
     weights = tf.ones([batch_size, max_len])
 else:
     outputs = tf.reshape(outputs, [batch_size, max_len, n_class])
     weights = tf.ones([batch_size, max_len])
+
 sequence_loss = tf.contrib.seq2seq.sequence_loss(
     logits=outputs, targets=Y, weights=weights)
 loss = tf.reduce_mean(sequence_loss)
@@ -155,24 +165,53 @@ for iter in range(iteration):
         total_batch = int(n_train / batch_size)
         randpermlist = np.random.permutation(n_train)
         sum_cost = 0
+
+        precision_corr = 0
+        precision_total = 0
+        recall_corr = 0
+        recall_total = 0
         for i in range(total_batch):
             randidx = randpermlist[i * batch_size:min((i + 1) * batch_size, n_train - 1)]
             batch_xs = x_data[randidx, :]
             batch_ys = y_data[randidx, :]
             batch_seq = sequence_length[randidx]
-            _, show_loss = sess.run([train, loss], feed_dict={X: batch_xs, Y: batch_ys, seq_len:batch_seq})
+            _, show_loss, y_pre = sess.run([train, loss, prediction], feed_dict={X: batch_xs, Y: batch_ys, seq_len:batch_seq})
+
+            for i in range(batch_size):
+                for a in range(max_len):
+                    if batch_ys[i, a] == 11:
+                        break
+                    if batch_ys[i, a] != 0:
+                        recall_total += 1
+                        if batch_ys[i, a] == y_pre[i, a]:
+                            recall_corr += 1
+                    if y_pre[i, a] != 0:
+                        precision_total += 1
+                        if batch_ys[i, a] == y_pre[i, a]:
+                            precision_corr += 1
+
+           # print("total num : {} correct_num{}".format(precision_total, precision_corr))
+            #print("recall : total num:{} correct_num:{}".format(recall_total, recall_corr))
 
         if iter % show_step == 0:
             print("[{}/{}] loss : {}".format (iter,iteration, show_loss))
-            predic = sess.run(prediction, feed_dict={X:x_data, Y:y_data, seq_len:sequence_length})
-            print(predic.shape)
-            '''print(batch_xs.shape)
-            print(batch_xs[:1].shape)
-            y_pre1= sess.run(prediction, feed_dict={X:batch_xs, Y:batch_ys, seq_len:batch_seq} )
+            y_pre = sess.run(prediction, feed_dict={X:batch_xs, Y:batch_ys, seq_len:batch_seq} )
             print("predict1")
-            print(y_pre1[:1])
+            #print(y_pre.shape)
+            print(y_pre[:1])
             print("label")
-            print(batch_ys[:1])'''
+            #print(batch_ys.shape)
+            print(batch_ys[:1])
+
+            print("total num : {} correct_num{}".format(precision_total, precision_corr))
+            print("recall : total num:{} correct_num:{}".format(recall_total, recall_corr))
+            precision = precision_corr/precision_total
+            recall = recall_corr / recall_total
+            score = 2*precision*recall / (precision+recall)
+            print("[{}/{}] precision : {}".format(iter,iteration,precision))
+            print("[{}/{}] recall : {}".format(iter, iteration, recall))
+            print("[{}/{}] score : {}\n".format(iter, iteration, score))
+
     else:
         _, show_loss = sess.run([train, loss], feed_dict={X: x_data, Y: y_data, seq_len: sequence_length})
 
@@ -212,4 +251,6 @@ basic RNN
 [27/30] loss : 0.04105803370475769
 [28/30] loss : 0.054583840072155
 
+
+total num : 120529 correct_num103231
 '''
