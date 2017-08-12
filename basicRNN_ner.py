@@ -7,7 +7,7 @@ wordModel = KeyedVectors.load('model/w2v_model')
 featureModel = KeyedVectors.load('model/f2v_model')
 
 import dataparse as ps
-#train data parsing
+#trained data parsing
 data_path = 'data/train.txt'
 parser = ps.Parser(data_path)
 parser.parse()
@@ -18,28 +18,41 @@ labels = parser.labels
 
 
 #train set
-useBatch = True
-batch_size = 64
+batch_size = 32 #batch_size
 n_class = 12  #number of labels
-n_hidden = 16
-#n_hidden = 100
+n_hidden = 25
 max_len = 336
-vec_size = 50
-learning_rate = 0.05
+vec_size = 25
+learning_rate = 0.005
+drop_rate = 0.5
 empty = 'empty'
 label_dic = {
-    'O' : [1,0,0,0,0,0,0,0,0,0,0,0],
-    'B_OG' : [0,1,0,0,0,0,0,0,0,0,0,0],
-    'I_OG' : [0,0,1,0,0,0,0,0,0,0,0,0],
-    'B_DT' : [0,0,0,1,0,0,0,0,0,0,0,0],
-    'I_DT' : [0,0,0,0,1,0,0,0,0,0,0,0],
-    'B_PS' : [0,0,0,0,0,1,0,0,0,0,0,0],
-    'I_PS' : [0,0,0,0,0,0,1,0,0,0,0,0],
-    'B_LC' : [0,0,0,0,0,0,0,1,0,0,0,0],
-    'I_LC' : [0,0,0,0,0,0,0,0,1,0,0,0],
-    'B_TI': [0,0,0,0,0,0,0,0,0,1,0,0],
-    'I_TI': [0,0,0,0,0,0,0,0,0,0,1,0],
+    'O' : [1,0,0,0,0,0,0,0,0,0,0,0],     #0
+    'B_OG' : [0,1,0,0,0,0,0,0,0,0,0,0],  #1
+    'I_OG' : [0,0,1,0,0,0,0,0,0,0,0,0],  #2
+    'B_DT' : [0,0,0,1,0,0,0,0,0,0,0,0],  #3
+    'I_DT' : [0,0,0,0,1,0,0,0,0,0,0,0],  #4
+    'B_PS' : [0,0,0,0,0,1,0,0,0,0,0,0],  #5
+    'I_PS' : [0,0,0,0,0,0,1,0,0,0,0,0],  #6
+    'B_LC' : [0,0,0,0,0,0,0,1,0,0,0,0],  #7
+    'I_LC' : [0,0,0,0,0,0,0,0,1,0,0,0],  #8
+    'B_TI': [0,0,0,0,0,0,0,0,0,1,0,0],   #9
+    'I_TI': [0,0,0,0,0,0,0,0,0,0,1,0],   #10
     'empty':[0,0,0,0,0,0,0,0,0,0,0,1]   #zero-padding's label
+}
+index2entity = {
+    0 : '0',
+    1 : 'B-OG',
+    2 : 'I-OG',
+    3 : 'B-DT',
+    4 : 'I-DT',
+    5 : 'B-PS',
+    6 : 'I-PS',
+    7 : 'B-LC',
+    8 : 'I-LC',
+    9 : 'B-TI',
+    10 : 'I-TI',
+    11 : 'empty'
 }
 
 def getData(sentences):
@@ -72,7 +85,7 @@ def getData(sentences):
                 prev = i.split("_")[1]
             if i == 'I':
                 i = i+"_"+prev
-            l.append(np.argmax(label_dic[i], axis=0))
+            l.append(label_dic[i])
         entity_data.append(l)
 
     x_data = np.array(input_data)
@@ -80,33 +93,24 @@ def getData(sentences):
     sequence_length = np.array(sequence_length)
     return x_data, y_data, sequence_length
 
+# x_data format : [None, 336, 50]
+# y_data format : [None, 336, n_class]
 x_data, y_data, sequence_length = getData(sentences)
 
-print("x data format", x_data[1:2, :].shape)
+
 X = tf.placeholder(
-    tf.float32, [None, max_len, vec_size])  # X one-hot
-Y = tf.placeholder(tf.int32, [None, max_len])  # Y label
-seq_len = tf.placeholder(tf.int32, [None])
+    tf.float32, [None, max_len, vec_size])  # X
+Y = tf.placeholder(tf.int32, [None, max_len, n_class])  # Y label
+seq_len = tf.placeholder(tf.int32, [None]) # sequeance length
+dropoout_rate = tf.placeholder(tf.float32)
 
-def RNN_with_Fully(X):
-    cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_hidden, state_is_tuple=True)
-    initial_state = cell.zero_state(batch_size, tf.float32)
-    outputs, _states = tf.nn.dynamic_rnn(
-        cell, X, initial_state=initial_state, dtype=tf.float32)
-
-    # FC layer
-    X_for_fc = tf.reshape(outputs, [-1, n_hidden])
-
-    outputs = tf.contrib.layers.fully_connected(
-        inputs=X_for_fc, num_outputs=n_class, activation_fn=None)
-    return outputs
-
-def BiRNN(X, seq_len):
+# Bidirectional LSTM with Softmax Layer
+def BiRNN_with_Softmax(X, seq_len, dropoout_rate):
     lstm_cell_fw = tf.contrib.rnn.BasicLSTMCell(n_hidden, state_is_tuple=True)
     lstm_cell_bw = tf.contrib.rnn.BasicLSTMCell(n_hidden, state_is_tuple=True)
+    lstm_cell_fw = tf.contrib.rnn.DropoutWrapper(lstm_cell_fw, input_keep_prob=dropoout_rate)
+    lstm_cell_bw = tf.contrib.rnn.DropoutWrapper(lstm_cell_bw, input_keep_prob=dropoout_rate)
 
-    # initial_state_fw = lstm_cell_fw.zero_state(batch_size, tf.float32)
-    # initial_state_bw = lstm_cell_bw.zero_state(batch_size, tf.float32)
     lstm_cell_fw = tf.contrib.rnn.MultiRNNCell([lstm_cell_fw] * 1)
     lstm_cell_bw = tf.contrib.rnn.MultiRNNCell([lstm_cell_bw] * 1)
 
@@ -118,139 +122,161 @@ def BiRNN(X, seq_len):
         dtype=tf.float32,
         sequence_length=seq_len
     )
-#8/7 concat부터
-
     outputs_forward, outputs_backward = bi_outputs
     bi_outputs = tf.concat([outputs_forward, outputs_backward], axis=2, name='output_sequence')
-    #outputs = tf.add(outputs_forward, outputs_backward)
-    #outputs = outputs_forward
     outputs = bi_outputs
-    # FC layer
-    X_for_fc = tf.reshape(outputs, [-1, n_hidden])
-    outputs = tf.contrib.layers.fully_connected(
-        inputs=X_for_fc, num_outputs=n_class, activation_fn=None)
+
+    # Softmax Layer   -> convert from lstm's output to [batch_size, max_length, n_class]
+    X_for_softmax = tf.reshape(outputs, [-1, 2*n_hidden])
+    softmax_w = tf.get_variable("softmax_w",[2*n_hidden, n_class], initializer=tf.contrib.layers.xavier_initializer())
+    softmax_b = tf.Variable(tf.random_normal([n_class]))
+    outputs = tf.matmul(X_for_softmax, softmax_w) + softmax_b
+    outputs = tf.reshape(outputs, [batch_size, max_len, n_class])
+
+    return outputs
+# Basic LSTM with Softmax
+def RNN_with_Softmax(X):
+    cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_hidden, state_is_tuple=True)
+    initial_state = cell.zero_state(batch_size, tf.float32)
+    outputs, _states = tf.nn.dynamic_rnn(
+        cell, X, initial_state=initial_state, dtype=tf.float32)
+
+    # Softmax layer
+    X_for_softmax = tf.reshape(outputs, [-1, n_hidden])
+    softmax_w = tf.get_variable("w",[n_hidden, n_class])
+    softmax_b = tf.get_variable("b",[n_class])
+    outputs = tf.matmul(X_for_softmax, softmax_w)+ softmax_b
+    outputs = tf.reshape(outputs, [batch_size, max_len, n_class])
 
     return outputs
 
-# reshape out for sequence_loss
-#outputs = RNN_with_Fully(X)
-outputs= BiRNN(X, seq_len)
-if useBatch:
-    outputs = tf.reshape(outputs, [batch_size, max_len, 2*n_class])
-    weights = tf.ones([batch_size, max_len])
-else:
-    outputs = tf.reshape(outputs, [batch_size, max_len, n_class])
-    weights = tf.ones([batch_size, max_len])
+outputs = BiRNN_with_Softmax(X, seq_len, dropoout_rate)
 
-sequence_loss = tf.contrib.seq2seq.sequence_loss(
-    logits=outputs, targets=Y, weights=weights)
-loss = tf.reduce_mean(sequence_loss)
-train = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
+# Softmax cost
+cost_i = tf.nn.softmax_cross_entropy_with_logits(logits=outputs, labels=Y)
+
+cost = tf.reduce_mean(cost_i)
+
+train = tf.train.AdamOptimizer(learning_rate).minimize(cost)
+#train = tf.train.AdadeltaOptimizer(learning_rate).minimize(cost)
 
 prediction = tf.argmax(outputs, axis=2)
 
-#train params
+# evaluation method
+def make_tag_idx (ans_seq) :
+    B_num = 0
+    all_answer_start = []
+    all_answer_end = []
+    all_answer_tag = []
+
+    for sent in ans_seq:
+        start_idx = []
+        end_idx = []
+        tag_set = []
+        tag_num = 0
+        flag = 0
+
+        for tag in sent:
+            if flag == 1 and tag[0] != 'I':
+                end_idx.append(tag_num - 1)
+                flag = 0
+
+            if tag[0] == 'B':
+                B_num = B_num + 1
+                start_idx.append(tag_num)
+                tag_set.append(tag[2:4])
+                flag = 1
+            tag_num = tag_num + 1
+
+        if flag == 1:
+            end_idx.append(tag_num - 1)
+
+        all_answer_start.append(start_idx)
+        all_answer_end.append(end_idx)
+        all_answer_tag.append(tag_set)
+
+    return (all_answer_start, all_answer_end, all_answer_tag, B_num)
+
+
+def eval(ans_seq, pred_seq) :
+    correct_num = 0
+
+    (all_answer_start, all_answer_end, all_answer_tag, answer_num) =  make_tag_idx (ans_seq)
+    (all_pred_start, all_pred_end, all_pred_tag, pred_num) =  make_tag_idx (pred_seq)
+
+    for i in range(0,len(ans_seq)) :
+        for j in range (0,len(all_pred_start[i])) :
+            for k in range (0,len(all_answer_start[i])) :
+                if all_pred_start[i][j] == all_answer_start[i][k] and all_pred_end[i][j] == all_answer_end[i][k] and all_pred_tag[i][j] == all_answer_tag[i][k] : correct_num = correct_num +1
+
+    return (correct_num, pred_num, answer_num)
+
+# train params
 init = tf.global_variables_initializer()
 sess = tf.Session()
-sess.run(init)
 print ("FUNCTIONS READY")
 
 iteration = 30
 save_step = 2
 n_train = x_data.shape[0]
-show_step = 1
+show_step = 5
 
-for iter in range(iteration):
-    if useBatch:
-        total_batch = int(n_train / batch_size)
-        randpermlist = np.random.permutation(n_train)
-        sum_cost = 0
+ # train start
+print("Train Start")
+sess.run(init)
+for iter in range(100):
+    total_batch = int(n_train / batch_size)
+    randpermlist = np.random.permutation(n_train)
+    sum_cost = 0
 
-        precision_corr = 0
-        precision_total = 0
-        recall_corr = 0
-        recall_total = 0
-        for i in range(total_batch):
-            randidx = randpermlist[i * batch_size:min((i + 1) * batch_size, n_train - 1)]
-            batch_xs = x_data[randidx, :]
-            batch_ys = y_data[randidx, :]
-            batch_seq = sequence_length[randidx]
-            _, show_loss, y_pre = sess.run([train, loss, prediction], feed_dict={X: batch_xs, Y: batch_ys, seq_len:batch_seq})
+    precision_corr = 0
+    precision_total = 0
+    recall_corr = 0
+    recall_total = 0
+    y_pred = []
+    y_test = []
+    for i in range(total_batch):
+        randidx = randpermlist[i * batch_size:min((i + 1) * batch_size, n_train - 1)]
+        batch_xs = x_data[randidx, :]
+        batch_ys = y_data[randidx, :]
+        batch_seq = sequence_length[randidx]
 
-            for i in range(batch_size):
-                for a in range(max_len):
-                    if batch_ys[i, a] == 11:
-                        break
-                    if batch_ys[i, a] != 0:
-                        recall_total += 1
-                        if batch_ys[i, a] == y_pre[i, a]:
-                            recall_corr += 1
-                    if y_pre[i, a] != 0:
-                        precision_total += 1
-                        if batch_ys[i, a] == y_pre[i, a]:
-                            precision_corr += 1
-
-           # print("total num : {} correct_num{}".format(precision_total, precision_corr))
-            #print("recall : total num:{} correct_num:{}".format(recall_total, recall_corr))
+        _, c= sess.run([train, cost], feed_dict={X: batch_xs, Y: batch_ys, seq_len:batch_seq, dropoout_rate:drop_rate})
 
         if iter % show_step == 0:
-            print("[{}/{}] loss : {}".format (iter,iteration, show_loss))
-            y_pre = sess.run(prediction, feed_dict={X:batch_xs, Y:batch_ys, seq_len:batch_seq} )
-            print("predict1")
-            #print(y_pre.shape)
-            print(y_pre[:1])
-            print("label")
-            #print(batch_ys.shape)
-            print(batch_ys[:1])
-
-            print("total num : {} correct_num{}".format(precision_total, precision_corr))
-            print("recall : total num:{} correct_num:{}".format(recall_total, recall_corr))
-            precision = precision_corr/precision_total
-            recall = recall_corr / recall_total
-            score = 2*precision*recall / (precision+recall)
-            print("[{}/{}] precision : {}".format(iter,iteration,precision))
-            print("[{}/{}] recall : {}".format(iter, iteration, recall))
-            print("[{}/{}] score : {}\n".format(iter, iteration, score))
-
-    else:
-        _, show_loss = sess.run([train, loss], feed_dict={X: x_data, Y: y_data, seq_len: sequence_length})
+            predict = sess.run(prediction, feed_dict={X: batch_xs, Y: batch_ys, seq_len:batch_seq, dropoout_rate:1})
+            for batch in range(batch_size):
+                pred = []
+                test = []
+                for a in range(max_len):
+                    label = np.argmax(batch_ys[batch, a])
+                    if label == 11:
+                        break
+                    test.append(index2entity[label])
+                    pred.append(index2entity[predict[batch, a]])
+                y_test.append(test)
+                y_pred.append(pred)
 
 
-'''
-tf.add
-[21/30] loss : 0.054476987570524216
-[22/30] loss : 0.047998007386922836
-[23/30] loss : 0.042630262672901154
-[24/30] loss : 0.05896882340312004
-[25/30] loss : 0.05155254527926445
-[26/30] loss : 0.03887255862355232
-[27/30] loss : 0.04661808907985687
-[28/30] loss : 0.04571153596043587
-[29/30] loss : 0.03673136979341507
-…
-only use fw cell 
-[20/30] loss : 0.046440403908491135
-[21/30] loss : 0.04254528880119324
-[22/30] loss : 0.03595905005931854
-[23/30] loss : 0.04015754908323288
-[24/30] loss : 0.046795379370450974
-[25/30] loss : 0.045131634920835495
-[26/30] loss : 0.04626455903053284
-[27/30] loss : 0.045871902257204056
-[28/30] loss : 0.04608023166656494
-[29/30] loss : 0.0387987419962883
+    if iter % show_step == 0:
+        print("[{}/{}] cost : {}".format(iter, 100, c))
+        correct, pred, ans = eval(y_test, y_pred)
+        precision = correct/pred
+        recall = correct/ans
+        score = (2*precision*recall)/(precision+recall)
+        print("[{}/{}] precision : {}".format(iter, 100, precision))
+        print("[{}/{}] recall : {}".format(iter, 100, recall))
+        print("[{}/{}] score : {}\n".format(iter, 100, score))
+        '''print("prediction")
+        print(predict[:1])
+        print("label")
+        print(np.argmax(batch_ys[:1], axis=2))
 
-basic RNN
-[20/30] loss : 0.04517918452620506
-[21/30] loss : 0.06283189356327057
-[22/30] loss : 0.0440068356692791
-[23/30] loss : 0.044367264956235886
-[24/30] loss : 0.041829898953437805
-[25/30] loss : 0.050393570214509964
-[26/30] loss : 0.04674462974071503
-[27/30] loss : 0.04105803370475769
-[28/30] loss : 0.054583840072155
-
-
-total num : 120529 correct_num103231
-'''
+        print("total num : {} correct_num {}".format(precision_total, precision_corr))
+        print("recall : total num:{} correct_num:{}".format(recall_total, recall_corr))
+        precision = precision_corr / precision_total
+        recall = recall_corr / recall_total
+        score = 2 * precision * recall / (precision + recall)
+        print("[{}/{}] precision : {}".format(iter, iteration, precision))
+        print("[{}/{}] recall : {}".format(iter, iteration, recall))
+        print("[{}/{}] score : {}\n".format(iter, iteration, score))'''
