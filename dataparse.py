@@ -90,7 +90,7 @@ class Parser(object):
                     # print(len(splits))
                     if len(splits) == 4:
                         text.addSplits(splits[0], splits[1], splits[2], splits[3])
-                        words.append(splits[1])
+                        words.append(splits[1]+"/"+splits[2])
                         fe.append(splits[2])
                         label.append(splits[3])
                         if splits[3] not in self.catagory:
