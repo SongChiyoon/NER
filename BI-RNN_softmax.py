@@ -19,40 +19,33 @@ labels = parser.labels
 
 #train set
 batch_size = 32 #batch_size
-n_class = 12  #number of labels
+n_class = 8  #number of labels
 n_hidden = 25
 max_len = 336
-vec_size = 25
+vec_size = 50
 learning_rate = 0.005
 drop_rate = 0.5
 empty = 'empty'
+
 label_dic = {
-    'O' : [1,0,0,0,0,0,0,0,0,0,0,0],     #0
-    'B_OG' : [0,1,0,0,0,0,0,0,0,0,0,0],  #1
-    'I_OG' : [0,0,1,0,0,0,0,0,0,0,0,0],  #2
-    'B_DT' : [0,0,0,1,0,0,0,0,0,0,0,0],  #3
-    'I_DT' : [0,0,0,0,1,0,0,0,0,0,0,0],  #4
-    'B_PS' : [0,0,0,0,0,1,0,0,0,0,0,0],  #5
-    'I_PS' : [0,0,0,0,0,0,1,0,0,0,0,0],  #6
-    'B_LC' : [0,0,0,0,0,0,0,1,0,0,0,0],  #7
-    'I_LC' : [0,0,0,0,0,0,0,0,1,0,0,0],  #8
-    'B_TI': [0,0,0,0,0,0,0,0,0,1,0,0],   #9
-    'I_TI': [0,0,0,0,0,0,0,0,0,0,1,0],   #10
-    'empty':[0,0,0,0,0,0,0,0,0,0,0,1]   #zero-padding's label
+    'O' :    [1,0,0,0,0,0,0,0],     #0
+    'B_OG' : [0,1,0,0,0,0,0,0],  #1
+    'B_DT' : [0,0,1,0,0,0,0,0],  #3
+    'B_PS' : [0,0,0,1,0,0,0,0],  #5
+    'B_LC' : [0,0,0,0,1,0,0,0],  #7
+    'B_TI':  [0,0,0,0,0,1,0,0],   #9
+    'I':  [0,0,0,0,0,0,1,0],   #10
+    'empty': [0,0,0,0,0,0,0,1]   #zero-padding's label
 }
 index2entity = {
     0 : '0',
     1 : 'B-OG',
-    2 : 'I-OG',
-    3 : 'B-DT',
-    4 : 'I-DT',
-    5 : 'B-PS',
-    6 : 'I-PS',
-    7 : 'B-LC',
-    8 : 'I-LC',
-    9 : 'B-TI',
-    10 : 'I-TI',
-    11 : 'empty'
+    2 : 'B-DT',
+    3 : 'B-PS',
+    4 : 'B-LC',
+    5 : 'B-TI',
+    6 : 'I',
+    7 : 'empty'
 }
 
 def getData(sentences):
@@ -81,10 +74,6 @@ def getData(sentences):
             for i in range(max_len - len(line)):
                 line.append(empty)
         for i in line:
-            if i != "O" and i != "I" and i != "empty":
-                prev = i.split("_")[1]
-            if i == 'I':
-                i = i+"_"+prev
             l.append(label_dic[i])
         entity_data.append(l)
 
@@ -96,7 +85,7 @@ def getData(sentences):
 # x_data format : [None, 336, 50]
 # y_data format : [None, 336, n_class]
 x_data, y_data, sequence_length = getData(sentences)
-
+print(x_data[:2])
 
 X = tf.placeholder(
     tf.float32, [None, max_len, vec_size])  # X
@@ -245,6 +234,10 @@ for iter in range(100):
 
         if iter % show_step == 0:
             predict = sess.run(prediction, feed_dict={X: batch_xs, Y: batch_ys, seq_len:batch_seq, dropoout_rate:1})
+            print("prediction")
+            print(predict[:2, :])
+            print("label ")
+            print(np.argmax(batch_ys[:2, :], axis=2))
             for batch in range(batch_size):
                 pred = []
                 test = []
@@ -273,7 +266,6 @@ for iter in range(100):
         print(predict[:1])
         print("label")
         print(np.argmax(batch_ys[:1], axis=2))
-
         print("total num : {} correct_num {}".format(precision_total, precision_corr))
         print("recall : total num:{} correct_num:{}".format(recall_total, recall_corr))
         precision = precision_corr / precision_total
